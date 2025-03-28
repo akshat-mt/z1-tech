@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Info App</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #50C878;
+            --background-color: #F0F4F8;
+            --text-color: #333;
+            --error-color: #FF6B6B;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: var(--background-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .pokemon-container {
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 100%;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .error-message {
+            position: absolute;
+            top: -50px;
+            left: 0;
+            width: 100%;
+            background-color: var(--error-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+
+        .error-message.show {
+            opacity: 1;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #pokemon-search {
+            flex-grow: 1;
+            padding: 10px;
+            border: 2px solid var(--primary-color);
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        #search-btn {
+            padding: 10px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #search-btn:hover {
+            background-color: var(--secondary-color);
+        }
+
+        #pokemon-dropdown {
+            padding: 10px;
+            border: 2px solid var(--primary-color);
+            border-radius: 5px;
+            font-size: 1rem;
+            background-color: white;
+            flex-basis: 200px;
+        }
+
+        #pokemon-image {
+            width: 250px;
+            height: 250px;
+            object-fit: contain;
+            margin-bottom: 20px;
+            filter: grayscale(100%);
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        #pokemon-image.loaded {
+            filter: grayscale(0%);
+            opacity: 1;
+        }
+
+        #pokemon-name {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+        }
+
+        #pokemon-name.loaded {
+            opacity: 1;
+        }
+
+        .types, .stats {
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+        }
+
+        .types.loaded, .stats.loaded {
+            opacity: 1;
+        }
+
+        .type-tag {
+            padding: 5px 15px;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .stat {
+            background-color: var(--background-color);
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        .stat-name {
+            font-size: 0.8rem;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .nav-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .nav-btn:hover {
+            background-color: var(--secondary-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="pokemon-container">
+        <div class="error-message" id="error-message"></div>
+        <div class="search-container">
+            <select id="pokemon-dropdown">
+                <option value="">Select a Pokémon</option>
+            </select>
+            <input type="text" id="pokemon-search" placeholder="Search by name/ID">
+            <button id="search-btn">Search</button>
+        </div>
+        <img id="pokemon-image" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9Ijk1IiBmaWxsPSIjRjBGMEYwIi8+PC9zdmc+" alt="Pokemon Image">
+        <h1 id="pokemon-name">Select a Pokémon</h1>
+        <div class="types" id="pokemon-types"></div>
+        <div class="stats" id="pokemon-stats"></div>
+        <div class="navigation">
+            <button class="nav-btn" id="prev-btn">Previous</button>
+            <button class="nav-btn" id="next-btn">Next</button>
+        </div>
+    </div>
+
+    <script>
+        const pokemonSearch = document.getElementById('pokemon-search');
+        const searchBtn = document.getElementById('search-btn');
+        const pokemonDropdown = document.getElementById('pokemon-dropdown');
+        const pokemonImage = document.getElementById('pokemon-image');
+        const pokemonName = document.getElementById('pokemon-name');
+        const pokemonTypes = document.getElementById('pokemon-types');
+        const pokemonStats = document.getElementById('pokemon-stats');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const errorMessage = document.getElementById('error-message');
+
+        let currentPokemonId = 1;
+        const MAX_POKEMON = 1010;
+
+        const typeColors = {
+            'normal': '#A8A878', 'fire': '#F08030', 'water': '#6890F0',
+            'electric': '#F8D030', 'grass': '#78C850', 'ice': '#98D8D8',
+            'fighting': '#C03028', 'poison': '#A040A0', 'ground': '#E0C068',
+            'flying': '#A890F0', 'psychic': '#F85888', 'bug': '#A8B820',
+            'rock': '#B8A038', 'ghost': '#705898', 'dragon': '#7038F8',
+            'dark': '#705848', 'steel': '#B8B8D0', 'fairy': '#EE99AC'
+        };
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            
+            // Remove error after 3 seconds
+            setTimeout(() => {
+                errorMessage.classList.remove('show');
+            }, 3000);
+        }
+
+        function resetUI() {
+            pokemonImage.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9Ijk1IiBmaWxsPSIjRjBGMEYwIi8+PC9zdmc+";
+            pokemonName.textContent = 'Select a Pokémon';
+            pokemonTypes.innerHTML = '';
+            pokemonStats.innerHTML = '';
+
+            pokemonImage.classList.remove('loaded');
+            pokemonName.classList.remove('loaded');
+            pokemonTypes.classList.remove('loaded');
+            pokemonStats.classList.remove('loaded');
+        }
+
+        // Populate dropdown
+        async function populatePokemonDropdown() {
+            try {
+                const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1010');
+                const data = await response.json();
+                
+                data.results.forEach((pokemon, index) => {
+                    const option = document.createElement('option');
+                    option.value = index + 1;
+                    option.textContent = `${index + 1}. ${pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)}`;
+                    pokemonDropdown.appendChild(option);
+                });
+            } catch (error) {
+                showError('Failed to load Pokémon list. Please check your connection.');
+            }
+        }
+
+        async function fetchPokemonData(id) {
+            try {
+                const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+                if (!response.ok) {
+                    throw new Error('Pokémon not found');
+                }
+                return await response.json();
+            } catch (error) {
+                showError('Could not fetch Pokémon data. Please try again.');
+                resetUI();
+                throw error;
+            }
+        }
+
+        function displayPokemonData(pokemon) {
+            // Reset previous state
+            resetUI();
+
+            // Update image
+            pokemonImage.src = pokemon.sprites.front_default || "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9Ijk1IiBmaWxsPSIjRjBGMEYwIi8+PC9zdmc+";
+            pokemonName.textContent = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+
+            // Types
+            pokemonTypes.innerHTML = pokemon.types.map(type => {
+                const typeName = type.type.name;
+                return `<span class="type-tag" style="background-color:${typeColors[typeName]}">${typeName}</span>`;
+            }).join('');
+
+            // Stats
+            pokemonStats.innerHTML = pokemon.stats.map(stat => `
+                <div class="stat">
+                    <div class="stat-value">${stat.base_stat}</div>
+                    <div class="stat-name">${stat.stat.name}</div>
+                </div>
+            `).join('');
+
+            // Trigger loaded animations
+            setTimeout(() => {
+                pokemonImage.classList.add('loaded');
+                pokemonName.classList.add('loaded');
+                pokemonTypes.classList.add('loaded');
+                pokemonStats.classList.add('loaded');
+            }, 50);
+
+            // Update dropdown and search input
+            pokemonDropdown.value = pokemon.id;
+            pokemonSearch.value = '';
+        }
+
+        async function searchPokemon() {
+            const searchTerm = pokemonSearch.value.toLowerCase().trim();
+            if (searchTerm) {
+                try {
+                    const pokemon = await fetchPokemonData(searchTerm);
+                    displayPokemonData(pokemon);
+                    currentPokemonId = pokemon.id;
+                } catch (error) {
+                    showError('Pokémon not found!');
+                }
+            }
+        }
+
+        async function loadPokemon(id) {
+            try {
+                const pokemon = await fetchPokemonData(id);
+                displayPokemonData(pokemon);
+                currentPokemonId = id;
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // Dropdown selection
+        pokemonDropdown.addEventListener('change', async (event) => {
+            const selectedId = event.target.value;
+            if (selectedId) {
+                await loadPokemon(selectedId);
+            }
+        });
+
+        // Search button click
+        searchBtn.addEventListener('click', searchPokemon);
+
+        // Search input enter key
+        pokemonSearch.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') {
+                searchPokemon();
+            }
+        });
+
+        // Navigation buttons
+        prevBtn.addEventListener('click', () => {
+            const newId = currentPokemonId > 1 ? currentPokemonId - 1 : MAX_POKEMON;
+            loadPokemon(newId);
+        });
+
+        nextBtn.addEventListener('click', () => {
+            const newId = currentPokemonId < MAX_POKEMON ? currentPokemonId + 1 : 1;
+            loadPokemon(newId);
+        });
+
+        // Initial setup
+        populatePokemonDropdown();
+        loadPokemon(currentPokemonId);
+    </script>
+</body>
+</html>
